@@ -1,4 +1,4 @@
-```markdown
+
 
 
 # Bypassing Web Application Firewalls (WAF)
