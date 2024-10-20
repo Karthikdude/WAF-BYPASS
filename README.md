@@ -1,57 +1,106 @@
 ```markdown
+
+
 # Bypassing Web Application Firewalls (WAF)
 
 **Author:** Karthik S Sathyan  
 **Date:** 20 October 2024  
-**Project Description:** This project explores techniques to bypass Web Application Firewalls (WAFs) by leveraging fingerprinting methods, blacklisting flaws, browser bugs, and encoding tricks.
-
-## Table of Contents
-
-- [Fundamental Concept](#fundamental-concept)
-- [Introduction](#introduction)
-- [Fingerprinting a WAF](#fingerprinting-a-waf)
-- [WAF Bypass Techniques](#waf-bypass-techniques)
-  - [1. Fingerprinting WAFs](#1-fingerprinting-wafs)
-  - [2. Bypassing Blacklists](#2-bypassing-blacklists)
-  - [3. Browser Bugs and Charset Encoding](#3-browser-bugs-and-charset-encoding)
-  - [4. Encoding and Entity Decoding](#4-encoding-and-entity-decoding)
-- [Conclusion](#conclusion)
-- [References](#references)
-
-## Fundamental Concept
-
-The fundamental concept behind Cross-Site Scripting (XSS) attacks revolves around the failure of input parameter validation in web applications. WAFs try to prevent these attacks by filtering malicious input, but there are ways to craft semantically equivalent payloads that bypass these filters.
+**Project Description:** This project dives deep into **Bypassing Web Application Firewalls (WAFs)** using advanced techniques like fingerprinting WAFs, exploiting blacklisting flaws, leveraging browser bugs, and various encoding strategies. By understanding how WAFs operate, ethical hackers and penetration testers can uncover vulnerabilities and improve application security.
 
 ---
 
-## Introduction
+## Table of Contents
 
-Web Application Firewalls (WAFs) have become a critical part of cybersecurity as they protect applications from common vulnerabilities like SQL Injection and XSS. However, many WAFs rely on blacklist-based filters that are prone to bypass. This project focuses on fingerprinting WAFs and demonstrating various techniques to bypass them.
+- [Overview](#overview)
+- [Fingerprinting a WAF](#fingerprinting-a-waf)
+  - [Cookie Values](#cookie-values)
+  - [Citrix Netscaler](#citrix-netscaler)
+  - [F5 BIG IP ASM](#f5-big-ip-asm)
+  - [HTTP Response Codes](#http-response-codes)
+  - [ModSecurity](#modsecurity)
+  - [WebKnight](#webknight)
+  - [Automatic Fingerprinting with Wafw00f](#automatic-fingerprinting-with-wafw00f)
+- [WAF Bypass Techniques](#waf-bypass-techniques)
+  - [Bypassing Blacklists](#bypassing-blacklists)
+    - [Brute Forcing](#brute-forcing)
+    - [Regex Reversing](#regex-reversing)
+    - [Browser Bugs](#browser-bugs)
+  - [Cheat Sheet for Bypassing WAFs](#cheat-sheet-for-bypassing-wafs)
+    - [Initial Tests](#initial-tests)
+    - [Encoding Techniques](#encoding-techniques)
+    - [Context-Based Filtering](#context-based-filtering)
+- [Advanced Techniques](#advanced-techniques)
+  - [Charset Bugs](#charset-bugs)
+  - [Null Bytes](#null-bytes)
+  - [Parsing Bugs](#parsing-bugs)
+  - [Unicode Separators](#unicode-separators)
+  - [Missing X-Frame Options](#missing-x-frame-options)
+  - [Window.name Trick](#window-name-trick)
+  - [DOM-Based XSS](#dom-based-xss)
+- [Conclusion](#conclusion)
+- [References](#references)
+
+---
+
+## Overview
+
+### 🔥 Introduction
+
+Web applications are increasingly becoming prime targets for cyber-attacks, and Web Application Firewalls (WAFs) are often the first line of defense against these threats. However, many WAFs rely on signature-based filters, often using blacklists, which can be exploited. This project explores methods for bypassing these WAFs to improve overall security, including detailed examples and proof-of-concept code.
+
+WAFs generally rely on **blacklisting** or **whitelisting** approaches. While blacklisting attempts to block "known bad" input, it is often flawed due to its reactive nature. This repository provides methods to bypass WAFs and prove how insecure blacklisting can be.
 
 ---
 
 ## Fingerprinting a WAF
 
-Before bypassing a WAF, it is crucial to identify the specific WAF in use. WAF fingerprinting involves looking for clues in HTTP responses, cookies, and headers. Here are some techniques used:
+Before bypassing a WAF, it’s crucial to identify the type of firewall in use. **Fingerprinting** a WAF involves examining HTTP responses, cookies, and headers. Identifying the WAF helps to craft specific payloads tailored to evade its defenses.
 
-### 1. Fingerprinting via Cookie Values
+### Cookie Values
 
-Many WAFs add unique cookies to the HTTP request. For example, Citrix Netscaler and F5 BIG IP ASM append specific cookie values, helping identify the WAF protecting a web application.
+Some WAFs append unique cookies to HTTP requests. For example:
 
-### 2. Fingerprinting Citrix Netscaler and F5 BIG IP ASM
-
-Citrix Netscaler and F5 BIG IP ASM can be fingerprinted using cookies (`ns_af`, `F5-TrafficSheild`) and certain HTTP responses.
-
-### 3. HTTP Response Codes
-
-Common HTTP response codes such as 403, 406, and 419 are indicative of certain WAFs, like ModSecurity or WebKnight, which return `406 Not Acceptable` or `999 No Hacking` responses.
-
-### 4. Automatic Fingerprinting with Wafw00f
-
-**Wafw00f** is a popular Python tool for automatically fingerprinting WAFs. It performs several tests, including cookie analysis and HTTP response matching.
+- **Citrix Netscaler**: Adds a cookie like `ns_af`.
+- **F5 BIG IP ASM**: Returns specific cookies in the HTTP request, which can be identified using tools or manually inspecting the response.
 
 ```bash
-# Example of using Wafw00f for WAF detection
+# Example: Fingerprinting F5 BIG IP
+GET / HTTP/1.1
+Host: target.com
+User-Agent: Mozilla/5.0
+Cookie: F5-TrafficShield=abcd1234;
+```
+
+### Citrix Netscaler
+
+**Citrix Netscaler** can be identified by inspecting cookies. For example, when querying an application running behind Citrix Netscaler, look for the presence of `ns_af` cookies in HTTP requests.
+
+### F5 BIG IP ASM
+
+F5 BIG IP ASM, one of the most popular WAFs, can also be fingerprinted through the use of unique cookie values (`F5-TrafficShield`) or by examining the specific HTTP response codes.
+
+### HTTP Response Codes
+
+WAFs often return specific error codes when a potential attack is detected. Common response codes include:
+
+- **403 Forbidden**: Denied access due to a rule violation.
+- **406 Not Acceptable**: Returned by **ModSecurity**.
+- **999 No Hacking**: Typically seen in **WebKnight**.
+
+### ModSecurity
+
+ModSecurity is an open-source WAF primarily designed for **Apache** servers. It can be easily fingerprinted by observing `406 Not Acceptable` errors in response to malicious payloads.
+
+### WebKnight
+
+WebKnight, specifically designed for **IIS servers**, responds with a `999 No Hacking` status when a malicious request is detected. This WAF works on a blacklist, blocking known attack patterns like SQL Injection and XSS.
+
+### Automatic Fingerprinting with Wafw00f
+
+**Wafw00f** is a powerful Python-based tool designed for automatically detecting and fingerprinting WAFs.
+
+```bash
+# Detecting WAF using Wafw00f
 wafw00f http://target.com
 ```
 
@@ -59,75 +108,130 @@ wafw00f http://target.com
 
 ## WAF Bypass Techniques
 
-### 1. Fingerprinting WAFs
+WAF bypass techniques involve crafting payloads that evade filters set by blacklists, encoders, or pattern-matching rules. Below are some of the most common bypass strategies.
 
-Fingerprinting helps identify the type of WAF, which is crucial before launching bypass attempts. This involves analyzing cookies, HTTP responses, and error codes as explained above.
+### Bypassing Blacklists
 
-### 2. Bypassing Blacklists
+Blacklists block known malicious patterns, but by altering the payload’s structure, it's possible to bypass them.
 
-Most WAFs operate using blacklists that filter known attack patterns. These blacklists can be bypassed using techniques like brute force, regex reversal, or exploiting browser-specific bugs.
+#### Brute Forcing
 
-#### 2.1 Brute Forcing
+Brute forcing involves sending various attack payloads to see which ones are blocked or allowed. Tools like **Burp Suite** or **FuzzDB** can be used to automate this process.
 
-Brute forcing involves sending a variety of payloads to see which ones are not blocked by the WAF.
+#### Regex Reversing
 
-#### 2.2 Regex Reversing
-
-By reversing WAF's regular expression filters, you can craft payloads that bypass the filter while remaining valid JavaScript.
-
-#### 2.3 Browser Bugs
-
-Exploiting browser bugs, especially in older browsers like Internet Explorer, can be effective in bypassing blacklists. For instance, charset bugs and null byte injections can fool filters into executing malicious scripts.
+Regex filters are prone to bypass if the payload can be crafted to avoid matching the regular expression. By **reverse engineering** these regex filters, valid payloads can be constructed.
 
 ```html
-<scri%00pt>alert('XSS');</scri%00pt>  <!-- Example using null bytes -->
+<scr<script>ipt>alert(1)</scr<script>ipt> <!-- Nested tag trick -->
+```
+
+#### Browser Bugs
+
+Older browsers, like Internet Explorer, have unpatched vulnerabilities that can bypass even modern WAFs. These bugs include charset handling, null byte injections, and parsing quirks.
+
+---
+
+## Cheat Sheet for Bypassing WAFs
+
+This cheat sheet provides a practical methodology for bypassing blacklist-based WAFs.
+
+### Initial Tests
+
+Start with harmless payloads like `<b>`, `<i>`, and `<u>` tags to see if they are filtered. Then, try known attack vectors like:
+
+```html
+<script>alert(1)</script> <!-- Basic XSS -->
+```
+
+If basic payloads are blocked, attempt case variation, tag nesting, and encoding.
+
+### Encoding Techniques
+
+Different encoding techniques can bypass filters that block specific characters or patterns. Examples include **HTML entity encoding**, **Base64 encoding**, and **Hexadecimal encoding**.
+
+```html
+%3Cscript%3Ealert%281%29%3C/script%3E <!-- URL-encoded XSS -->
+```
+
+### Context-Based Filtering
+
+WAFs often fail to analyze the context in which input is reflected. For example, if input is reflected inside JavaScript tags, it's possible to bypass filters by injecting code without closing the existing tags.
+
+```html
+<script>var x="test";alert(1)//</script> <!-- Inject code inside script tags -->
 ```
 
 ---
 
-### 3. Browser Bugs and Charset Encoding
+## Advanced Techniques
 
-### 3.1 Charset Bugs
+### Charset Bugs
 
-Certain WAFs may be bypassed by changing the charset used in HTTP requests. Modifying the `Content-Type` header to use an encoding like `IBM037` can allow bypassing WAFs that aren't configured to handle such encodings.
+Certain WAFs can be bypassed by manipulating the **charset** parameter in HTTP headers. For example, encoding a payload in **IBM037** charset can bypass poorly configured WAFs.
 
 ```python
-# Charset encoding in Python
+# Example in Python
 import urllib
 payload = 'alert(1)'
 encoded_payload = urllib.parse.quote_plus(payload.encode("IBM037"))
 print(encoded_payload)
 ```
 
-### 3.2 Null Bytes
+### Null Bytes
 
-Null bytes are commonly used as string terminators and can be used to bypass certain WAF filters, especially in older browsers like Internet Explorer 9.
+Null byte injection involves appending `%00` to parts of the payload, exploiting older browsers like **Internet Explorer 9**.
+
+```html
+<scri%00pt>alert(1);</scri%00pt>  <!-- Null byte injection -->
+```
+
+### Parsing Bugs
+
+Older versions of browsers like **IE7** can be tricked into executing malformed HTML by inserting unexpected characters such as `%`, `//`, or `!`.
+
+```html
+<%div style=xss:expression(alert(1))> <!-- Works up to IE7 -->
+```
+
+### Unicode Separators
+
+Certain WAFs fail to filter **Unicode separators** like `x0B` that act as spaces. These can be used to bypass event handlers that are normally blocked.
+
+```html
+<a/onmouseover[\x0b]=alert(1)> <!-- Using a Unicode
+
+ separator -->
+```
+
+### Missing X-Frame Options
+
+Exploiting missing **X-Frame-Options** headers allows attackers to use clickjacking techniques or iframe injections to execute malicious code.
+
+### Window.name Trick
+
+The `window.name` property in iframes can be exploited to inject code when the WAF restricts normal methods of JavaScript injection.
+
+```html
+<iframe src="http://target.com" name="javascript:alert(1)"></iframe> <!-- Window.name injection -->
+```
 
 ---
 
-### 4. Encoding and Entity Decoding
+## DOM-Based XSS
 
-### 4.1 Entity Decoding
+DOM-based XSS occurs when JavaScript takes user input and inserts it into the DOM without proper sanitization. WAFs often fail to block these because they don't intercept client-side processing.
 
-WAFs may decode certain HTML entities, which can lead to successful bypasses. Injecting encoded payloads that get decoded by the WAF can result in malicious script execution.
-
-```html
-&lt;script&gt;alert(1)&lt;/script&gt;  <!-- Encoded payload -->
-```
-
-### 4.2 Other Encoding Techniques
-
-You can obfuscate payloads using different encoding schemes, including HTML, base64, and hexadecimal, to bypass WAFs.
-
-```html
-<a href="javascript&#x3A;alert(1)">Click me</a>  <!-- Hex encoding -->
+```javascript
+var input = location.hash;
+document.write(input); <!-- Vulnerable to DOM-based XSS -->
 ```
 
 ---
 
 ## Conclusion
 
-Blacklisting is not an effective long-term solution for securing web applications. It is a temporary fix that often leads to more vulnerabilities. Developers and administrators should focus on patching source code vulnerabilities and using whitelists rather than relying solely on WAFs. Regular updates to WAF signatures and manual configuration are essential to maintaining security.
+WAFs provide a valuable layer of defense, but blacklisting alone is not a sustainable solution. This project highlights the importance of using **whitelisting** and **proper encoding** to secure applications effectively. Developers and security teams should prioritize patching vulnerabilities and ensuring that WAFs are regularly updated with new signatures.
 
 ---
 
@@ -137,4 +241,3 @@ Blacklisting is not an effective long-term solution for securing web application
 - [Hacken Blog on WAF Bypassing](https://hacken.io/discover/how-to-bypass-waf-hackenproof-cheat-sheet/)
 - [ModSecurity XSS Evasion Challenge](http://blog.spiderlabs.com/2013/09/modsecurity-xss-evasion-challenge-results.html)
 - [HTML5 Security](http://html5sec.org)
-
